@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2022 KeePassXC Team <team@keepassxc.org>
+ *  Copyright (C) 2023 KeePassXC Team <team@keepassxc.org>
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -20,6 +20,7 @@
 #include "core/Database.h"
 #include "core/Entry.h"
 #include "core/Group.h"
+#include "core/Metadata.h"
 #include "totp/totp.h"
 
 #include <QFileInfo>
@@ -31,110 +32,33 @@
 
 #include <minizip/unzip.h>
 
-/*
-{
-  "accounts": [
-    {
-      "attrs": {
-        "accountName": "Wendy Appleseed",
-        "name": "Wendy Appleseed",
-        "avatar": "profile-pic.png",
-        "email": "wendy.c.appleseed@gmail.com",
-        "uuid": "D4RI47B7BJDT25C2LWA7LEJLHZ",
-        "domain": "https://my.1password.com/"
-      },
-      "vaults": [
-        {
-          "attrs": {
-            "uuid": "rr3lr6c2opoggvrete23q72ahi",
-            "desc": "",
-            "avatar": "pic.png",
-            "name": "Personal",
-            "type": "P"
-          },
-          "items": [
-            {
-              "item": {
-                "uuid": "fkruyzrldvizuqlnavfj3gltfe",
-                "favIndex": 1,
-                "createdAt": 1614298956,
-                "updatedAt": 1635346445,
-                "trashed": false,
-                "categoryUuid": "001",
-                "details": {
-                  "loginFields": [
-                    {
-                      "value": "most-secure-password-ever!",
-                      "id": "",
-                      "name": "password",
-                      "fieldType": "P",
-                      "designation": "password"
-                    }
-                  ],
-                  "notesPlain": "This is a note. *bold*! _italic_!",
-                  "sections": [
-                    {
-                      "title": "Security",
-                      "name": "Section_oazxddhvftfknycbbmh5ntwfa4",
-                      "fields": [
-                        {
-                          "title": "PIN",
-                          "id": "CCEF647B399604E8F6Q6C8C3W31AFD407",
-                          "value": {
-                            "concealed": "12345"
-                          },
-                          "indexAtSource": 0,
-                          "guarded": false,
-                          "multiline": false,
-                          "dontGenerate": false,
-                          "inputTraits": {
-                            "keyboard": "default",
-                            "correction": "default",
-                            "capitalization": "default"
-                          }
-                        } // fieldObject
-                      ] // "fields"
-                    } // sectionObject
-                  ], // "sections"
-                  "passwordHistory": [
-                    {
-                      "value": "12345password",
-                      "time": 1458322355
-                    }
-                  ],
-                  "documentAttributes": {
-                    "fileName": "My movie.mp4",
-                    "documentId": "o2xjvw2q5j2yx6rtpxfjdqopom",
-                    "decryptedSize": 3605932
-                  }
-                }, // "details"
-                "overview": {
-                  "subtitle": "",
-                  "urls": [
-                    {
-                      "label": "",
-                      "url": "https://www.dropbox.com/"
-                    }
-                  ],
-                  "title": "Dropbox",
-                  "url": "https://www.dropbox.com/",
-                  "ps": 100,
-                  "pbe": 86.13621,
-                  "pgrng": true
-                } // "overview"
-              } // "item"
-            } // itemObject
-          ] // items
-        } // vaultObject
-      ] // vaults
-    } // accountObject
-  ] // accounts
-}
-*/
-
 namespace
 {
-    Entry* readItem(const QJsonObject& item)
+    bool extractFile(unzFile uf, QString filename, QByteArray& data)
+    {
+        data.clear();
+
+        if (unzLocateFile(uf, filename.toLatin1(), 2) != UNZ_OK) {
+            return false;
+        }
+
+        // Read export.data into memory
+        int bytes, bytesRead = 0;
+        unzOpenCurrentFile(uf);
+        do {
+            data.resize(data.size() + 8192);
+            bytes = unzReadCurrentFile(uf, data.data() + bytesRead, 8192);
+            if (bytes > 0) {
+                bytesRead += bytes;
+            }
+        } while (bytes > 0);
+        unzCloseCurrentFile(uf);
+        data.truncate(bytesRead);
+
+        return true;
+    }
+
+    Entry* readItem(const QJsonObject& item, unzFile uf = nullptr)
     {
         auto itemMap = item.toVariantMap();
         auto overviewMap = itemMap.value("overview").toMap();
@@ -182,6 +106,7 @@ namespace
         // Dive into the item sections to pull out advanced attributes
         auto sections = detailsMap.value("sections").toList();
         for (const auto& section : sections) {
+            // Derive a prefix for attribute names using the title or uuid if missing
             auto sectionMap = section.toMap();
             auto prefix = sectionMap.value("title").toString();
             if (prefix.isEmpty()) {
@@ -189,6 +114,7 @@ namespace
             }
 
             for (const auto& field : sectionMap.value("fields").toList()) {
+                // Form the name of the attribute using the prefix and title or id
                 auto fieldMap = field.toMap();
                 auto name = fieldMap.value("title").toString();
                 if (name.isEmpty()) {
@@ -213,15 +139,19 @@ namespace
                         }
                         entry->attributes()->set(name, otpurl.toEncoded(), true);
                     } else {
+                        // First otp value encountered gets formal storage
                         entry->setTotp(Totp::parseSettings(otpurl.toEncoded()));
                     }
                 } else {
                     QString value = valueMap.value(key).toString();
                     if (key == "date") {
+                        // Convert date fields from Unix time
                         value = QDateTime::fromSecsSinceEpoch(valueMap.value(key).toULongLong(), Qt::UTC).toString();
                     } else if (key == "email") {
+                        // Email address is buried in a sub-value
                         value = valueMap.value(key).toMap().value("email_address").toString();
                     } else if (key == "address") {
+                        // Combine all the address attributes into a fully formed structure
                         auto address = valueMap.value(key).toMap();
                         value = address.value("street").toString() + "\n" + address.value("city").toString() + ", "
                                 + address.value("state").toString() + " " + address.value("zip").toString() + "\n"
@@ -235,8 +165,19 @@ namespace
             }
         }
 
-        // TODO: add attachments
-        // TODO: add icon?
+        // Add an attachment if defined
+        if (detailsMap.contains("documentAttributes")) {
+            auto document = detailsMap.value("documentAttributes").toMap();
+            auto fileName = document.value("fileName").toString();
+            auto docId = document.value("documentId").toString();
+            QByteArray data;
+            if (extractFile(uf, QString("files/%1__%2").arg(docId, fileName), data)) {
+                entry->attachments()->set(fileName, data);
+            } else {
+                auto warning = QString("Failed to extract 1PUX document: %1").arg(fileName);
+                qWarning(warning.toLatin1());
+            }
+        }
 
         // Collapse any accumulated history
         entry->removeHistoryItems(entry->historyItems());
@@ -253,28 +194,39 @@ namespace
         return entry.take();
     }
 
-    Group* readVault(const QJsonObject& vault)
+    void writeVaultToDatabase(const QJsonObject& vault, QSharedPointer<Database> db, unzFile uf = nullptr)
     {
         if (!vault.contains("attrs") || !vault.contains("items")) {
-            return nullptr;
+            // Early out if the vault is missing critical items
+            return;
         }
 
+        auto attr = vault.value("attrs").toObject().toVariantMap();
+
         // Create group and assign basic values
-        QScopedPointer<Group> group(new Group());
+        auto group = new Group();
         group->setUuid(QUuid::createUuid());
-        group->setName(vault.value("attrs").toObject().value("name").toString());
+        group->setName(attr.value("name").toString());
+        group->setParent(db->rootGroup());
 
         const auto items = vault.value("items").toArray();
         for (const auto& item : items) {
-            auto entry = readItem(item.toObject());
+            auto entry = readItem(item.toObject(), uf);
             if (entry) {
-                entry->setGroup(group.data(), false);
+                entry->setGroup(group, false);
             }
         }
-        
-        // TODO: add icon
 
-        return group.take();
+        // Add the group icon if present
+        auto icon = attr.value("avatar").toString();
+        if (!icon.isEmpty()) {
+            QByteArray data;
+            if (extractFile(uf, QString("files/%1").arg(icon), data)) {
+                auto uuid = QUuid::createUuid();
+                db->metadata()->addCustomIcon(uuid, data);
+                group->setIcon(uuid);
+            }
+        }
     }
 } // namespace
 
@@ -306,26 +258,13 @@ QSharedPointer<Database> OPUXReader::convert(const QString& path)
     }
 
     // Find the export.data file, if not found this isn't a 1PUX file
-    if (unzLocateFile(uf, "export.data", 2) != UNZ_OK) {
+    QByteArray data;
+    if (!extractFile(uf, "export.data", data)) {
         m_error = QObject::tr("Invalid 1PUX file format: Missing export.data");
         unzClose(uf);
         return {};
     }
-
-    // Read export.data into memory
-    QByteArray data;
-    int bytes, bytesRead = 0;
-    unzOpenCurrentFile(uf);
-    do {
-        data.resize(data.size() + 8192);
-        bytes = unzReadCurrentFile(uf, data.data() + bytesRead, 8192);
-        if (bytes > 0) {
-            bytesRead += bytes;
-        }
-    } while (bytes > 0);
-    unzCloseCurrentFile(uf);
-    data.truncate(bytesRead);
-
+    
     auto db = QSharedPointer<Database>::create();
     const auto json = QJsonDocument::fromJson(data);
 
@@ -333,10 +272,7 @@ QSharedPointer<Database> OPUXReader::convert(const QString& path)
     const auto vaults = account.value("vaults").toArray();
 
     for (const auto& vault : vaults) {
-        auto group = readVault(vault.toObject());
-        if (group) {
-            group->setParent(db->rootGroup());
-        }
+        writeVaultToDatabase(vault.toObject(), db, uf);
     }
 
     unzClose(uf);
