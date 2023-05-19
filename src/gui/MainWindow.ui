@@ -231,15 +231,6 @@
       <string>&amp;Recent Databases</string>
      </property>
     </widget>
-    <widget class="QMenu" name="menuImport">
-     <property name="title">
-      <string>&amp;Import</string>
-     </property>
-     <addaction name="actionImportCsv"/>
-     <addaction name="actionImport1PUX"/>
-     <addaction name="actionImportOpVault"/>
-     <addaction name="actionImportKeePass1"/>
-    </widget>
     <widget class="QMenu" name="menuExport">
      <property name="title">
       <string>&amp;Export</string>
@@ -264,7 +255,6 @@
     <addaction name="actionDatabaseSecurity"/>
     <addaction name="separator"/>
     <addaction name="actionDatabaseMerge"/>
-    <addaction name="menuImport"/>
     <addaction name="actionImport"/>
     <addaction name="menuExport"/>
     <addaction name="separator"/>

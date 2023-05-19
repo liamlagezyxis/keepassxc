@@ -20,7 +20,6 @@
 
 #include "DatabaseOpenDialog.h"
 #include "gui/MessageWidget.h"
-#include "gui/ImportOpenWidget.h"
 
 #include <QTabWidget>
 #include <QTimer>
@@ -65,10 +64,6 @@ public slots:
     void openDatabase();
     void mergeDatabase();
     DatabaseWidget* importFile();
-    void importCsv();
-    void importKeePass1Database();
-    void importOpVaultDatabase();
-    void importOPUXDatabase();
     bool saveDatabase(int index = -1);
     bool saveDatabaseAs(int index = -1);
     bool saveDatabaseBackup(int index = -1);

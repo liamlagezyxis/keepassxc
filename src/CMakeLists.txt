@@ -116,7 +116,6 @@ set(keepassx_SOURCES
         gui/GuiTools.cpp
         gui/HtmlExporter.cpp
         gui/IconModels.cpp
-        gui/ImportOpenWidget.cpp
         gui/KMessageWidget.cpp
         gui/MainWindow.cpp
         gui/MessageBox.cpp

@@ -38,10 +38,10 @@
 #include "gui/Clipboard.h"
 #include "gui/CloneDialog.h"
 #include "gui/DatabaseOpenDialog.h"
+#include "gui/DatabaseOpenWidget.h"
 #include "gui/EntryPreviewWidget.h"
 #include "gui/FileDialog.h"
 #include "gui/GuiTools.h"
-#include "gui/ImportOpenWidget.h"
 #include "gui/MainWindow.h"
 #include "gui/MessageBox.h"
 #include "gui/TotpDialog.h"
@@ -80,7 +80,6 @@ DatabaseWidget::DatabaseWidget(QSharedPointer<Database> db, QWidget* parent)
     , m_reportsDialog(new ReportsDialog(this))
     , m_databaseSettingDialog(new DatabaseSettingsDialog(this))
     , m_databaseOpenWidget(new DatabaseOpenWidget(this))
-    , m_importOpenWidget(new ImportOpenWidget(this))
     , m_groupView(new GroupView(m_db.data(), this))
     , m_tagView(new TagView(this))
     , m_saveAttempts(0)
@@ -175,7 +174,6 @@ DatabaseWidget::DatabaseWidget(QSharedPointer<Database> db, QWidget* parent)
     m_reportsDialog->setObjectName("reportsDialog");
     m_databaseSettingDialog->setObjectName("databaseSettingsDialog");
     m_databaseOpenWidget->setObjectName("databaseOpenWidget");
-    m_importOpenWidget->setObjectName("importOpenWidget");
 
     addChildWidget(m_mainWidget);
     addChildWidget(m_editEntryWidget);
@@ -184,7 +182,6 @@ DatabaseWidget::DatabaseWidget(QSharedPointer<Database> db, QWidget* parent)
     addChildWidget(m_databaseSettingDialog);
     addChildWidget(m_historyEditEntryWidget);
     addChildWidget(m_databaseOpenWidget);
-    addChildWidget(m_importOpenWidget);
 
     // clang-format off
     connect(m_mainSplitter, SIGNAL(splitterMoved(int,int)), SIGNAL(splitterSizesChanged()));
@@ -205,7 +202,6 @@ DatabaseWidget::DatabaseWidget(QSharedPointer<Database> db, QWidget* parent)
     connect(m_reportsDialog, SIGNAL(editFinished(bool)), SLOT(switchToMainView(bool)));
     connect(m_databaseSettingDialog, SIGNAL(editFinished(bool)), SLOT(switchToMainView(bool)));
     connect(m_databaseOpenWidget, SIGNAL(dialogFinished(bool)), SLOT(loadDatabase(bool)));
-    connect(m_importOpenWidget, SIGNAL(dialogFinished(bool)), SLOT(loadDatabase(bool)));
     connect(this, SIGNAL(currentChanged(int)), SLOT(emitCurrentModeChanged()));
     connect(this, SIGNAL(requestGlobalAutoType(const QString&)), parent, SLOT(performGlobalAutoType(const QString&)));
     // clang-format on
@@ -256,7 +252,7 @@ DatabaseWidget::Mode DatabaseWidget::currentMode() const
         return Mode::None;
     } else if (currentWidget() == m_mainWidget) {
         return Mode::ViewMode;
-    } else if (currentWidget() == m_databaseOpenWidget || currentWidget() == m_importOpenWidget) {
+    } else if (currentWidget() == m_databaseOpenWidget) {
         return Mode::LockedMode;
     } else {
         return Mode::EditMode;
@@ -1353,33 +1349,6 @@ void DatabaseWidget::switchToOpenDatabase(const QString& filePath, const QString
 {
     switchToOpenDatabase(filePath);
     m_databaseOpenWidget->enterKey(password, keyFile);
-}
-
-void DatabaseWidget::switchToCsvImport(const QString& filePath)
-{
-    // TODO: Remove this function
-    Q_UNUSED(filePath)
-}
-
-void DatabaseWidget::switchToImportKeepass1(const QString& filePath)
-{
-    m_importOpenWidget->setImportType(ImportOpenWidget::ImportType::IMPORT_KEEPASS1);
-    m_importOpenWidget->load(filePath);
-    setCurrentWidget(m_importOpenWidget);
-}
-
-void DatabaseWidget::switchToImportOpVault(const QString& fileName)
-{
-    m_importOpenWidget->setImportType(ImportOpenWidget::ImportType::IMPORT_OPVAULT);
-    m_importOpenWidget->load(fileName);
-    setCurrentWidget(m_importOpenWidget);
-}
-
-void DatabaseWidget::switchToImportOPUX(const QString& fileName)
-{
-    m_importOpenWidget->setImportType(ImportOpenWidget::ImportType::IMPORT_OPUX);
-    m_importOpenWidget->load(fileName);
-    setCurrentWidget(m_importOpenWidget);
 }
 
 void DatabaseWidget::switchToEntryEdit()

@@ -123,9 +123,6 @@ private slots:
     void switchToNewDatabase();
     void switchToOpenDatabase();
     void switchToDatabaseFile(const QString& file);
-    void switchToKeePass1Database();
-    void switchToOpVaultDatabase();
-    void switchToCsvImport();
     void databaseStatusChanged(DatabaseWidget* dbWidget);
     void databaseTabChanged(int tabIndex);
     void openRecentDatabase(QAction* action);

@@ -30,7 +30,6 @@
 
 class DatabaseOpenDialog;
 class DatabaseOpenWidget;
-class ImportOpenWidget;
 class DatabaseSettingsDialog;
 class ReportsDialog;
 class FileWatcher;
@@ -210,11 +209,7 @@ public slots:
     void switchToOpenDatabase();
     void switchToOpenDatabase(const QString& filePath);
     void switchToOpenDatabase(const QString& filePath, const QString& password, const QString& keyFile);
-    void switchToCsvImport(const QString& filePath);
     void performUnlockDatabase(const QString& password, const QString& keyfile = {});
-    void switchToImportKeepass1(const QString& filePath);
-    void switchToImportOpVault(const QString& fileName);
-    void switchToImportOPUX(const QString& fileName);
     void emptyRecycleBin();
 
     // Search related slots
@@ -282,7 +277,6 @@ private:
     QPointer<ReportsDialog> m_reportsDialog;
     QPointer<DatabaseSettingsDialog> m_databaseSettingDialog;
     QPointer<DatabaseOpenWidget> m_databaseOpenWidget;
-    QPointer<ImportOpenWidget> m_importOpenWidget;
     QPointer<GroupView> m_groupView;
     QPointer<TagView> m_tagView;
     QPointer<EntryView> m_entryView;
