@@ -229,7 +229,7 @@ private:
 
     bool m_updateTimeinfo;
 
-    friend void Database::setRootGroup(Group* group);
+    friend Group* Database::setRootGroup(Group* group);
 };
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(Group::CloneFlags)
