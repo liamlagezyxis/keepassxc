@@ -20,6 +20,7 @@
 
 #include "core/Database.h"
 #include "core/Group.h"
+#include "format/Bitwarden.h"
 #include "format/KeePass1Reader.h"
 #include "format/OPUXReader.h"
 #include "format/OpVaultReader.h"
@@ -166,14 +167,12 @@ QSharedPointer<Database> ImportWizardPageReview::importOPUX(const QString& filen
 
 QSharedPointer<Database> ImportWizardPageReview::importBitwarden(const QString& filename)
 {
-    // Bitwarden reader;
-    // auto db = reader.convert(filename);
-    // if (reader.hasError()) {
-    //     m_ui->messageWidget->showMessage(reader.errorString(), KMessageWidget::Error, -1);
-    // }
-    // return db;
-    Q_UNUSED(filename)
-    return {};
+    BitwardenReader reader;
+    auto db = reader.convert(filename);
+    if (reader.hasError()) {
+        m_ui->messageWidget->showMessage(reader.errorString(), KMessageWidget::Error, -1);
+    }
+    return db;
 }
 
 QSharedPointer<Database> ImportWizardPageReview::importOPVault(const QString& filename, const QString& password)

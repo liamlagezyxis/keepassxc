@@ -69,6 +69,7 @@ set(keepassx_SOURCES
         crypto/kdf/Kdf.cpp
         crypto/kdf/AesKdf.cpp
         crypto/kdf/Argon2Kdf.cpp
+        format/Bitwarden.cpp
         format/CsvExporter.cpp
         format/CsvParser.cpp
         format/KeePass1Reader.cpp
