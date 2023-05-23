@@ -34,16 +34,16 @@
 
 namespace
 {
-    bool extractFile(unzFile uf, QString filename, QByteArray& data)
+    QByteArray extractFile(unzFile uf, QString filename)
     {
-        data.clear();
-
         if (unzLocateFile(uf, filename.toLatin1(), 2) != UNZ_OK) {
-            return false;
+            qWarning("Failed to extract 1PUX document: %s", qPrintable(filename));
+            return {};
         }
 
         // Read export.data into memory
         int bytes, bytesRead = 0;
+        QByteArray data;
         unzOpenCurrentFile(uf);
         do {
             data.resize(data.size() + 8192);
@@ -55,7 +55,7 @@ namespace
         unzCloseCurrentFile(uf);
         data.truncate(bytesRead);
 
-        return true;
+        return data;
     }
 
     Entry* readItem(const QJsonObject& item, unzFile uf = nullptr)
@@ -142,6 +142,15 @@ namespace
                         // First otp value encountered gets formal storage
                         entry->setTotp(Totp::parseSettings(otpurl.toEncoded()));
                     }
+                } else if (key == "file") {
+                    // Add a file to the entry attachments
+                    auto fileMap = valueMap.value(key).toMap();
+                    auto fileName = fileMap.value("fileName").toString();
+                    auto docId = fileMap.value("documentId").toString();
+                    auto data = extractFile(uf, QString("files/%1__%2").arg(docId, fileName));
+                    if (!data.isNull()) {
+                        entry->attachments()->set(fileName, data);
+                    }
                 } else {
                     QString value = valueMap.value(key).toString();
                     if (key == "date") {
@@ -165,17 +174,14 @@ namespace
             }
         }
 
-        // Add an attachment if defined
+        // Add a document attachment if defined
         if (detailsMap.contains("documentAttributes")) {
             auto document = detailsMap.value("documentAttributes").toMap();
             auto fileName = document.value("fileName").toString();
             auto docId = document.value("documentId").toString();
-            QByteArray data;
-            if (extractFile(uf, QString("files/%1__%2").arg(docId, fileName), data)) {
+            auto data = extractFile(uf, QString("files/%1__%2").arg(docId, fileName));
+            if (!data.isNull()) {
                 entry->attachments()->set(fileName, data);
-            } else {
-                auto warning = QString("Failed to extract 1PUX document: %1").arg(fileName);
-                qWarning(warning.toLatin1());
             }
         }
 
@@ -220,8 +226,8 @@ namespace
         // Add the group icon if present
         auto icon = attr.value("avatar").toString();
         if (!icon.isEmpty()) {
-            QByteArray data;
-            if (extractFile(uf, QString("files/%1").arg(icon), data)) {
+            auto data = extractFile(uf, QString("files/%1").arg(icon));
+            if (!data.isNull()) {
                 auto uuid = QUuid::createUuid();
                 db->metadata()->addCustomIcon(uuid, data);
                 group->setIcon(uuid);
@@ -258,8 +264,8 @@ QSharedPointer<Database> OPUXReader::convert(const QString& path)
     }
 
     // Find the export.data file, if not found this isn't a 1PUX file
-    QByteArray data;
-    if (!extractFile(uf, "export.data", data)) {
+    auto data = extractFile(uf, "export.data");
+    if (data.isNull()) {
         m_error = QObject::tr("Invalid 1PUX file format: Missing export.data");
         unzClose(uf);
         return {};
