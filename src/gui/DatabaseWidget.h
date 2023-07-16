@@ -252,6 +252,7 @@ private slots:
     void onEntryChanged(Entry* entry);
     void onGroupChanged();
     void onDatabaseModified();
+    void onDatabaseNonDataChanged();
     void onAutosaveDelayTimeout();
     void connectDatabaseSignals();
     void loadDatabase(bool accepted);
